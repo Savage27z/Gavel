@@ -96,6 +96,8 @@ const FIXTURES: FlaggedItem[] = [
     risk: "high",
     score: 0.96,
     reason: "Fake support + wallet link",
+    offenses: 3,
+    suggested: { action: "ban", deleteRecent: 10 },
     flaggedAt: new Date().toISOString(),
   },
   {
@@ -109,6 +111,8 @@ const FIXTURES: FlaggedItem[] = [
     risk: "medium",
     score: 0.71,
     reason: "Giveaway scam link",
+    offenses: 1,
+    suggested: { action: "mute", muteMinutes: 60, deleteRecent: 1 },
     flaggedAt: new Date().toISOString(),
   },
   {
@@ -122,6 +126,8 @@ const FIXTURES: FlaggedItem[] = [
     risk: "low",
     score: 0.32,
     reason: "Self promotion",
+    offenses: 1,
+    suggested: { action: "ignore" },
     flaggedAt: new Date().toISOString(),
   },
 ];

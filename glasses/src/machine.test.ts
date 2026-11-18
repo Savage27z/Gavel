@@ -15,6 +15,8 @@ const item: FlaggedItem = {
   score: 0.9,
   reason: "Fake support",
   flaggedAt: "2026-01-01T00:00:00Z",
+  offenses: 1,
+  suggested: { action: "mute", muteMinutes: 1440, deleteRecent: 1 },
 };
 
 const card = (): State => ({ ...initialState("c"), phase: "card", item, pending: 3 });
@@ -81,6 +83,15 @@ describe("machine", () => {
     expect(renderScreen(asked.state).body).toContain("Banned + deleted 10");
     const confirmed = reduce(asked.state, { type: "gesture", gesture: "press" });
     expect(confirmed.effect).toMatchObject({ type: "act", itemId: "a", request: { action: "ban", deleteRecent: 10 } });
+  });
+
+  it("press executes the server's suggested action and the card shows it", () => {
+    const repeat = { ...item, offenses: 3, suggested: { action: "ban" as const, deleteRecent: 10 } };
+    const state = { ...card(), item: repeat };
+    expect(reduce(state, { type: "gesture", gesture: "press" }).effect).toMatchObject({ request: { action: "ban", deleteRecent: 10 } });
+    const screen = renderScreen(state);
+    expect(screen.footer).toContain("Press ban+del10");
+    expect(screen.body).toContain("#3 offense");
   });
 
   it("swipe down cancels a pending voice command", () => {

@@ -15,7 +15,7 @@ Crypto community moderators are always on call. Scams arrive in bursts (fake sup
 
 | Gesture | Action |
 |---|---|
-| Press | Mute 24 h and delete the message (undo within 60 s) |
+| Press | Runs the suggested action shown in the footer (repeat offenders and high risk escalate: ignore, mute 1 h, mute 24 h, ban + delete 10). Undo within 60 s |
 | Double press | Ignore |
 | Swipe down | Next / skip |
 | Swipe up | Undo the last action (valid 60 s) |

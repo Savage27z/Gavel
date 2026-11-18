@@ -13,6 +13,8 @@ export interface FlaggedItem {
   score: number;
   reason: string;
   flaggedAt: string;
+  offenses: number;
+  suggested: ActionRequest;
 }
 
 export interface ActionRequest {

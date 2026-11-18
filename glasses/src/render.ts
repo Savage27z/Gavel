@@ -1,4 +1,4 @@
-import { describeAction, type State } from "./machine";
+import { describeAction, shortAction, type State } from "./machine";
 import type { FlaggedItem, Risk } from "./types";
 
 export interface Screen {
@@ -17,7 +17,8 @@ export function truncate(text: string, max: number): string {
 
 function cardBody(item: FlaggedItem): string {
   const name = item.username ? `@${item.username}` : `user ${item.userId}`;
-  return [`${name} in ${truncate(item.chatTitle, 24)}`, `"${truncate(item.text, BODY_CHARS)}"`, `> ${truncate(item.reason, 60)}`].join("\n");
+  const repeat = item.offenses > 1 ? ` | #${item.offenses} offense` : "";
+  return [`${name} in ${truncate(item.chatTitle, 20)}${repeat}`, `"${truncate(item.text, BODY_CHARS)}"`, `> ${truncate(item.reason, 60)}`].join("\n");
 }
 
 export function renderScreen(state: State): Screen {
@@ -36,7 +37,7 @@ export function renderScreen(state: State): Screen {
       return {
         header: `${BADGE[state.item.risk]}   ${state.pending} pending`,
         body: state.phase === "busy" ? state.message : cardBody(state.item),
-        footer: "Press remove | 2x ignore | Dn skip | Up undo | Hold voice",
+        footer: `Press ${shortAction(state.item.suggested)} | 2x ignore | Dn skip | Up undo | Hold voice`,
       };
     case "confirm":
       return {

@@ -76,6 +76,12 @@ export function initialState(code: string | null): State {
   };
 }
 
+export function shortAction(request: ActionRequest): string {
+  if (request.action === "ban") return request.deleteRecent ? `ban+del${request.deleteRecent}` : "ban";
+  if (request.action === "mute") return `mute ${formatMinutes(request.muteMinutes ?? 1440)}${request.deleteRecent ? "+del" : ""}`;
+  return "ignore";
+}
+
 export function bootEffect(state: State): Effect {
   return state.phase === "loading" ? { type: "fetchNext", skipped: [] } : NONE;
 }
@@ -111,7 +117,7 @@ function load(state: State, skipped: string[]): Step {
 function onCardGesture(state: State, gesture: Gesture): Step {
   switch (gesture) {
     case "press":
-      return act(state, { action: "mute", muteMinutes: 1440, deleteRecent: 1 });
+      return act(state, state.item?.suggested ?? { action: "mute", muteMinutes: 1440, deleteRecent: 1 });
     case "doublePress":
       return act(state, { action: "ignore" });
     case "swipeDown":

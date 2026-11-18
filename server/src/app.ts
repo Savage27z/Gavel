@@ -52,7 +52,12 @@ export function buildApp({ service, pairingCode, transcriber, production }: AppO
   );
 
   app.post<{ Body: { undoToken?: string } }>("/queue/undo", async (req, reply) => {
-    const ok = req.body?.undoToken ? await service.undo(req.body.undoToken) : false;
+    let ok = false;
+    try {
+      ok = req.body?.undoToken ? await service.undo(req.body.undoToken) : false;
+    } catch {
+      return reply.code(502).send({ error: "telegram failed, try again" });
+    }
     if (!ok) return reply.code(410).send({ error: "undo expired or unknown" });
     return { ok: true };
   });
@@ -85,6 +90,7 @@ export function buildApp({ service, pairingCode, transcriber, production }: AppO
           username: s.username,
           text: s.text,
           messageId: 100 + i,
+          offenses: s.offenses,
           risk: s.risk,
           score: s.score,
           reason: s.reason,

@@ -12,7 +12,9 @@ FlaggedItem = {
   risk: "low" | "medium" | "high",
   score: number,           // 0..1
   reason: string,          // <= 60 chars, e.g. "Fake support + wallet link"
-  flaggedAt: string        // ISO
+  flaggedAt: string,       // ISO
+  offenses: number,        // times this user has been flagged in this chat, including this one
+  suggested: { action: Action, deleteRecent?: number, muteMinutes?: number }  // server's recommended action, executed by press
 }
 Action = "ban" | "mute" | "ignore"
 
@@ -34,4 +36,4 @@ POST /dev/seed                         -> { added: number }  (only when NODE_ENV
 - Classifier: cheap rules first (links, new account, "DM me", "support", seed phrase / wallet words), optional LLM refinement if LLM_API_KEY set; must work offline with rules only.
 
 ## Glasses gestures (Even Hub)
-press = mute 24 h and delete that message (reversible; a ban needs a voice command plus a confirm press), double press = ignore, swipe down = next/skip, swipe up = undo last action, long press = open voice command (mic -> STT -> /voice/intent), then a confirm screen: press = yes, swipe down = cancel.
+press = run FlaggedItem.suggested (shown in the footer); only 3+ offenses, or high risk with 2+, suggest a ban, double press = ignore, swipe down = next/skip, swipe up = undo last action, long press = open voice command (mic -> STT -> /voice/intent), then a confirm screen: press = yes, swipe down = cancel.
