@@ -1,4 +1,4 @@
-import type { ActionRequest, FlaggedItem } from "./types";
+import type { ActionRequest, FlaggedItem, ShiftStats } from "./types";
 
 export type Phase =
   | "pairing"
@@ -18,7 +18,9 @@ export interface State {
   item: FlaggedItem | null;
   pending: number;
   skipped: string[];
-  undoToken: string | null;
+  undoTokens: string[];
+  shift: ShiftStats | null;
+  alert: boolean;
   message: string;
   error: string | null;
   afterToast: "next" | "stay";
@@ -30,8 +32,8 @@ export type Gesture = "press" | "doublePress" | "swipeUp" | "swipeDown" | "longP
 export type Msg =
   | { type: "paired"; code: string }
   | { type: "gesture"; gesture: Gesture }
-  | { type: "loaded"; item: FlaggedItem | null; pending: number }
-  | { type: "acted"; request: ActionRequest; undoToken: string }
+  | { type: "loaded"; item: FlaggedItem | null; pending: number; shift?: ShiftStats }
+  | { type: "acted"; request: ActionRequest; undoToken: string; undoTokens?: string[]; applied?: number; failed?: number }
   | { type: "undone" }
   | { type: "voiceHeard"; text: string }
   | { type: "voiceIntent"; request: ActionRequest }
@@ -47,8 +49,8 @@ export type Effect =
   | { type: "savePairing"; code: string | null }
   | { type: "fetchNext"; skipped: string[] }
   | { type: "poll" }
-  | { type: "act"; itemId: string; request: ActionRequest }
-  | { type: "undo"; token: string }
+  | { type: "act"; itemId: string; request: ActionRequest; wave?: true }
+  | { type: "undo"; token: string; tokens?: string[] }
   | { type: "startRecording" }
   | { type: "stopRecording"; itemId: string }
   | { type: "scheduleToast"; ms: number };
@@ -68,7 +70,9 @@ export function initialState(code: string | null): State {
     item: null,
     pending: 0,
     skipped: [],
-    undoToken: null,
+    undoTokens: [],
+    shift: null,
+    alert: false,
     message: "",
     error: null,
     afterToast: "next",
@@ -102,12 +106,26 @@ function formatMinutes(minutes: number): string {
   return `${minutes}m`;
 }
 
-function act(state: State, request: ActionRequest): Step {
+function act(state: State, request: ActionRequest, wave = false): Step {
   if (!state.item) return { state, effect: NONE };
   return {
     state: { ...state, phase: "busy", message: "Working..." },
-    effect: { type: "act", itemId: state.item.id, request },
+    effect: wave ? { type: "act", itemId: state.item.id, request, wave: true } : { type: "act", itemId: state.item.id, request },
   };
+}
+
+function undo(state: State): Step {
+  const [token] = state.undoTokens;
+  if (!token) return { state, effect: NONE };
+  const effect: Effect = state.undoTokens.length > 1 ? { type: "undo", token, tokens: state.undoTokens } : { type: "undo", token };
+  return { state: { ...state, phase: "busy", message: "Undoing..." }, effect };
+}
+
+const WAVE_VERB = { ban: "Banned", mute: "Muted", ignore: "Ignored" } as const;
+
+function describeWave(request: ActionRequest, applied: number, failed: number): string {
+  const failure = failed ? `, ${failed} failed` : "";
+  return `${WAVE_VERB[request.action]} ${applied} users${failure}. Swipe up to undo`;
 }
 
 function load(state: State, skipped: string[]): Step {
@@ -117,15 +135,13 @@ function load(state: State, skipped: string[]): Step {
 function onCardGesture(state: State, gesture: Gesture): Step {
   switch (gesture) {
     case "press":
-      return act(state, state.item?.suggested ?? { action: "mute", muteMinutes: 1440, deleteRecent: 1 });
+      return act(state, state.item?.suggested ?? { action: "mute", muteMinutes: 1440, deleteRecent: 1 }, (state.item?.waveSize ?? 1) > 1);
     case "doublePress":
       return act(state, { action: "ignore" });
     case "swipeDown":
       return state.item ? load(state, [...state.skipped, state.item.id]) : load(state, state.skipped);
     case "swipeUp":
-      return state.undoToken
-        ? { state: { ...state, phase: "busy", message: "Undoing..." }, effect: { type: "undo", token: state.undoToken } }
-        : { state, effect: NONE };
+      return undo(state);
     case "longPress":
       return { state: { ...state, phase: "listening" }, effect: { type: "startRecording" } };
     case "longRelease":
@@ -141,7 +157,9 @@ export function reduce(state: State, msg: Msg): Step {
     return { state, effect: NONE };
   }
   if (msg.type === "polled") {
-    return state.phase === "card" ? { state: { ...state, pending: msg.pending }, effect: NONE } : { state, effect: NONE };
+    if (state.phase !== "card") return { state, effect: NONE };
+    const alert = !!state.item && !!msg.item && msg.item.risk === "high" && msg.item.id !== state.item.id && state.item.risk !== "high";
+    return { state: { ...state, pending: msg.pending, alert }, effect: NONE };
   }
   if (msg.type === "paired") {
     return {
@@ -163,9 +181,9 @@ export function reduce(state: State, msg: Msg): Step {
     case "loading":
       if (msg.type !== "loaded") return { state, effect: NONE };
       if (!msg.item) {
-        return { state: { ...state, phase: "empty", item: null, pending: 0, skipped: [] }, effect: NONE };
+        return { state: { ...state, phase: "empty", item: null, pending: 0, skipped: [], alert: false, shift: msg.shift ?? null }, effect: NONE };
       }
-      return { state: { ...state, phase: "card", item: msg.item, pending: msg.pending }, effect: NONE };
+      return { state: { ...state, phase: "card", item: msg.item, pending: msg.pending, alert: false, shift: msg.shift ?? state.shift }, effect: NONE };
 
     case "card":
       return msg.type === "gesture" ? onCardGesture(state, msg.gesture) : { state, effect: NONE };
@@ -176,8 +194,8 @@ export function reduce(state: State, msg: Msg): Step {
           state: {
             ...state,
             phase: "toast",
-            undoToken: msg.undoToken,
-            message: `${describeAction(msg.request)}. Swipe up to undo`,
+            undoTokens: msg.undoTokens ?? [msg.undoToken],
+            message: msg.undoTokens && msg.undoTokens.length > 1 ? describeWave(msg.request, msg.applied ?? msg.undoTokens.length, msg.failed ?? 0) : `${describeAction(msg.request)}. Swipe up to undo`,
             afterToast: "next",
           },
           effect: { type: "scheduleToast", ms: TOAST_MS },
@@ -185,7 +203,7 @@ export function reduce(state: State, msg: Msg): Step {
       }
       if (msg.type === "undone") {
         return {
-          state: { ...state, phase: "toast", undoToken: null, message: "Undone", afterToast: "next" },
+          state: { ...state, phase: "toast", undoTokens: [], message: "Undone", afterToast: "next" },
           effect: { type: "scheduleToast", ms: 1200 },
         };
       }
@@ -195,16 +213,12 @@ export function reduce(state: State, msg: Msg): Step {
       if (msg.type === "toastDone") {
         return state.afterToast === "stay" ? { state: { ...state, phase: "card" }, effect: NONE } : load(state, state.skipped);
       }
-      if (msg.type === "gesture" && msg.gesture === "swipeUp" && state.undoToken) {
-        return { state: { ...state, phase: "busy", message: "Undoing..." }, effect: { type: "undo", token: state.undoToken } };
-      }
+      if (msg.type === "gesture" && msg.gesture === "swipeUp") return undo(state);
       return { state, effect: NONE };
 
     case "empty":
       if (msg.type === "gesture" && (msg.gesture === "swipeDown" || msg.gesture === "press")) return load(state, []);
-      if (msg.type === "gesture" && msg.gesture === "swipeUp" && state.undoToken) {
-        return { state: { ...state, phase: "busy", message: "Undoing..." }, effect: { type: "undo", token: state.undoToken } };
-      }
+      if (msg.type === "gesture" && msg.gesture === "swipeUp") return undo(state);
       return { state, effect: NONE };
 
     case "error":

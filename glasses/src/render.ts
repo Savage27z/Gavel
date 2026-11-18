@@ -21,6 +21,14 @@ function cardBody(item: FlaggedItem): string {
   return [`${name} in ${truncate(item.chatTitle, 20)}${repeat}`, `"${truncate(item.text, BODY_CHARS)}"`, `> ${truncate(item.reason, 60)}`].join("\n");
 }
 
+function cardHeader(state: State, item: FlaggedItem): string {
+  const parts = [BADGE[item.risk]];
+  if (state.alert) return `${parts[0]}   NEW HIGH - Dn to view`;
+  if (item.waveSize > 1) parts.push(`WAVE x${item.waveSize}`);
+  parts.push(`${state.pending} pending`);
+  return parts.join("   ");
+}
+
 export function renderScreen(state: State): Screen {
   switch (state.phase) {
     case "pairing":
@@ -35,9 +43,9 @@ export function renderScreen(state: State): Screen {
     case "busy":
       if (!state.item) return { header: "GAVEL", body: state.message, footer: "" };
       return {
-        header: `${BADGE[state.item.risk]}   ${state.pending} pending`,
+        header: cardHeader(state, state.item),
         body: state.phase === "busy" ? state.message : cardBody(state.item),
-        footer: `Press ${shortAction(state.item.suggested)} | 2x ignore | Dn skip | Up undo | Hold voice`,
+        footer: `Press ${shortAction(state.item.suggested)}${state.item.waveSize > 1 ? ` x${state.item.waveSize}` : ""} | 2x ignore | Dn skip | Up undo | Hold voice`,
       };
     case "confirm":
       return {
@@ -49,13 +57,13 @@ export function renderScreen(state: State): Screen {
       return {
         header: "DONE",
         body: state.message,
-        footer: state.undoToken ? "Swipe up to undo" : "",
+        footer: state.undoTokens.length ? "Swipe up to undo" : "",
       };
     case "empty":
       return {
         header: "GAVEL",
-        body: "Queue clear",
-        footer: state.undoToken ? "Up undo | Dn refresh" : "Dn refresh",
+        body: state.shift?.handled ? `Queue clear\nShift: ${state.shift.handled} handled ${state.shift.muted} mute ${state.shift.banned} ban ${state.shift.ignored} ignore` : "Queue clear",
+        footer: state.undoTokens.length ? "Up undo | Dn refresh" : "Dn refresh",
       };
     case "error":
       return { header: "OFFLINE", body: state.error ?? "Something went wrong", footer: "Press to retry" };

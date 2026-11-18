@@ -14,8 +14,24 @@ export interface FlaggedItem {
   reason: string;
   flaggedAt: string;
   offenses: number;
+  waveSize: number;
   suggested: ActionRequest;
   demo?: boolean;
+}
+
+export type StoredItem = Omit<FlaggedItem, "waveSize">;
+
+export interface AuditEntry {
+  at: string;
+  itemId: string;
+  chatId: number;
+  userId: number;
+  username: string | null;
+  action: Action;
+  muteMinutes?: number;
+  deleteRecent?: number;
+  waveSize: number;
+  undone: boolean;
 }
 
 export interface Verdict {

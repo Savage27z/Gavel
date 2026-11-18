@@ -3,14 +3,14 @@ import { classify } from "./classifier.js";
 import type { Refiner } from "./llm.js";
 import type { ModQueue } from "./queue.js";
 import type { TelegramGateway } from "./telegram.js";
-import type { ActionRequest, FlaggedItem, IncomingMessage } from "./types.js";
+import type { ActionRequest, FlaggedItem, IncomingMessage, StoredItem } from "./types.js";
 
 const UNDO_WINDOW_MS = 60_000;
 const FLAG_THRESHOLD = 0.35;
 const RECENT_PER_USER = 50;
 
 interface UndoEntry {
-  item: FlaggedItem;
+  item: StoredItem;
   action: ActionRequest["action"];
   expires: number;
   key: string;
@@ -66,7 +66,18 @@ export class ModService {
 
   async act(id: string, req: ActionRequest): Promise<{ undoToken: string } | null> {
     const item = this.queue.claim(id);
-    if (!item) return null;
+    return item ? this.process(item, req, 1) : null;
+  }
+
+  async actWave(id: string, req: ActionRequest): Promise<{ undoTokens: string[]; failed: number } | null> {
+    const members = this.queue.wave(id).flatMap((m) => this.queue.claim(m.id) ?? []);
+    if (!members.length) return null;
+    const results = await Promise.allSettled(members.map((m) => this.process(m, req, members.length)));
+    const undoTokens = results.flatMap((r) => (r.status === "fulfilled" ? [r.value.undoToken] : []));
+    return { undoTokens, failed: results.length - undoTokens.length };
+  }
+
+  private async process(item: StoredItem, req: ActionRequest, waveSize: number): Promise<{ undoToken: string }> {
     const key = `${item.chatId}:${item.userId}`;
     try {
       return await this.serialize(key, async () => {
@@ -84,7 +95,7 @@ export class ModService {
             await Promise.allSettled([...toDelete].map((m) => this.tg!.deleteMessage(item.chatId, m)));
           }
         }
-        this.queue.commit(id);
+        this.queue.commit(item.id, { action: req.action, muteMinutes: req.muteMinutes, deleteRecent: req.deleteRecent, waveSize });
         const undoToken = randomUUID();
         const version = (this.versions.get(key) ?? 0) + 1;
         this.versions.set(key, version);
@@ -92,9 +103,16 @@ export class ModService {
         return { undoToken };
       });
     } catch (error) {
-      this.queue.release(id);
+      this.queue.release(item.id);
       throw error;
     }
+  }
+
+  async undoMany(tokens: string[]): Promise<boolean> {
+    const results = await Promise.allSettled(tokens.map((t) => this.undo(t)));
+    const undone = results.some((r) => r.status === "fulfilled" && r.value);
+    if (!undone && results.some((r) => r.status === "rejected")) throw new Error("undo failed");
+    return undone;
   }
 
   async undo(token: string): Promise<boolean> {

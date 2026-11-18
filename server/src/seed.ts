@@ -22,5 +22,8 @@ export const seeds: Seed[] = [
   { chatTitle: "Solana Degens", username: "pump_insider", text: "Insider pump group starting soon, 50x guaranteed. Join t.me/+AbCdEf123 last chance", risk: "medium", score: 0.7, reason: "Pump group invite", offenses: 1 },
   { chatTitle: "DeFi Yield Club", username: "newbie2024", text: "hey guys, can someone dm me? my wallet won't connect to the dapp, pls help", risk: "medium", score: 0.45, reason: "Asks to DM (maybe benign)", offenses: 1 },
   { chatTitle: "NFT Alpha", username: "collector_x", text: "Check my new collection on opensea https://opensea.io/collection/pixel-pets", risk: "low", score: 0.4, reason: "Self-promo link", offenses: 1 },
+  { chatTitle: "ETH Builders", username: "arb_claim_bot", text: "ARB airdrop is live, connect your wallet at arb-claims.top/claim before it closes", risk: "high", score: 0.9, reason: "Wallet/airdrop lure + link", offenses: 1 },
+  { chatTitle: "ETH Builders", username: "claim_arb_now", text: "Last chance: claim ARB tokens at arb-claims.top/claim, wallet connect required", risk: "high", score: 0.9, reason: "Wallet/airdrop lure + link", offenses: 1 },
+  { chatTitle: "ETH Builders", username: "arbdrop_team", text: "Official ARB giveaway. Claim at arb-claims.top/claim and connect wallet", risk: "high", score: 0.9, reason: "Wallet/airdrop lure + link", offenses: 1 },
   { chatTitle: "Bitcoin Talk", username: "hodler_anna", text: "Free BTC faucet giveaway going on in my channel, check it out", risk: "medium", score: 0.5, reason: "Giveaway bait", offenses: 1 },
 ];

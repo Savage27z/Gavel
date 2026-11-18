@@ -15,6 +15,7 @@ export interface FlaggedItem {
   flaggedAt: string;
   offenses: number;
   suggested: ActionRequest;
+  waveSize: number;
 }
 
 export interface ActionRequest {
@@ -25,9 +26,19 @@ export interface ActionRequest {
 
 export interface ActionResult {
   undoToken: string;
+  undoTokens?: string[];
+  applied?: number;
+  failed?: number;
 }
 
-export interface QueueStats {
-  pending: number;
+export interface ShiftStats {
   handled: number;
+  muted: number;
+  banned: number;
+  ignored: number;
+}
+
+export interface QueueStats extends ShiftStats {
+  pending: number;
+  undone: number;
 }

@@ -95,16 +95,16 @@ async function boot(): Promise<void> {
     const api = client;
     await guarded(async () => {
       if (effect.type === "fetchNext") {
-        const { item, pending } = await api.next(effect.skipped);
-        dispatch({ type: "loaded", item, pending });
+        const { item, pending, shift } = await api.next(effect.skipped);
+        dispatch({ type: "loaded", item, pending, shift });
       } else if (effect.type === "poll") {
         const { item, pending } = await api.next([]);
         dispatch({ type: "polled", item, pending });
       } else if (effect.type === "act") {
-        const result = await api.act(effect.itemId, effect.request);
-        dispatch({ type: "acted", request: effect.request, undoToken: result.undoToken });
+        const result = await api.act(effect.itemId, effect.request, effect.wave);
+        dispatch({ type: "acted", request: effect.request, ...result });
       } else if (effect.type === "undo") {
-        await api.undo(effect.token);
+        await api.undo(effect.tokens ?? [effect.token]);
         dispatch({ type: "undone" });
       } else if (effect.type === "startRecording") {
         chunks = [];

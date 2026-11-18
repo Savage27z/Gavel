@@ -16,6 +16,7 @@ const item: FlaggedItem = {
   reason: "Fake support",
   flaggedAt: "2026-01-01T00:00:00Z",
   offenses: 1,
+  waveSize: 1,
   suggested: { action: "mute", muteMinutes: 1440, deleteRecent: 1 },
 };
 
@@ -143,5 +144,65 @@ describe("machine", () => {
 
   it("truncates long text", () => {
     expect(truncate("x".repeat(300), 50)).toHaveLength(50);
+  });
+
+  describe("wave", () => {
+    const wave = (): State => ({ ...card(), item: { ...item, waveSize: 4 } });
+
+    it("shows count in header and footer", () => {
+      const screen = renderScreen(wave());
+      expect(screen.header).toContain("WAVE x4");
+      expect(screen.footer).toContain("Press mute 1d+del x4");
+      expect(renderScreen(card()).header).not.toContain("WAVE");
+    });
+
+    it("press applies the suggestion to the whole wave and undo covers all tokens", () => {
+      const step = reduce(wave(), { type: "gesture", gesture: "press" });
+      expect(step.effect).toEqual({ type: "act", itemId: "a", request: item.suggested, wave: true });
+      const toast = reduce(step.state, { type: "acted", request: item.suggested, undoToken: "u1", undoTokens: ["u1", "u2", "u3", "u4"], applied: 4, failed: 0 }).state;
+      expect(toast.message).toBe("Muted 4 users. Swipe up to undo");
+      expect(reduce(toast, { type: "gesture", gesture: "swipeUp" }).effect).toEqual({ type: "undo", token: "u1", tokens: ["u1", "u2", "u3", "u4"] });
+    });
+
+    it("reports partial failures", () => {
+      const busy = reduce(wave(), { type: "gesture", gesture: "press" }).state;
+      const toast = reduce(busy, { type: "acted", request: item.suggested, undoToken: "u1", undoTokens: ["u1", "u2", "u3"], applied: 3, failed: 1 }).state;
+      expect(toast.message).toBe("Muted 3 users, 1 failed. Swipe up to undo");
+    });
+  });
+
+  describe("new high alert", () => {
+    const medium = { ...item, risk: "medium" as const };
+    const fresh = { ...item, id: "b" };
+    const viewing = (): State => ({ ...card(), item: medium });
+
+    it("flags a new high item without swapping the card", () => {
+      const step = reduce(viewing(), { type: "polled", item: fresh, pending: 5 });
+      expect(step.state.alert).toBe(true);
+      expect(step.state.item).toBe(medium);
+      expect(renderScreen(step.state).header).toContain("NEW HIGH - Dn to view");
+    });
+
+    it("does not alert when the card is already high, the item is the same, or the item is not high", () => {
+      expect(reduce(card(), { type: "polled", item: fresh, pending: 5 }).state.alert).toBe(false);
+      expect(reduce(viewing(), { type: "polled", item: medium, pending: 5 }).state.alert).toBe(false);
+      expect(reduce(viewing(), { type: "polled", item: { ...fresh, risk: "medium" }, pending: 5 }).state.alert).toBe(false);
+      expect(reduce(viewing(), { type: "polled", item: null, pending: 0 }).state.alert).toBe(false);
+    });
+
+    it("swipe down skips the current id and clears the alert once the new item loads", () => {
+      const alerted = reduce(viewing(), { type: "polled", item: fresh, pending: 5 }).state;
+      const down = reduce(alerted, { type: "gesture", gesture: "swipeDown" });
+      expect(down.effect).toEqual({ type: "fetchNext", skipped: ["a"] });
+      expect(reduce(down.state, { type: "loaded", item: fresh, pending: 5 }).state.alert).toBe(false);
+    });
+  });
+
+  describe("shift summary", () => {
+    it("empty screen shows the shift counts when something was handled", () => {
+      const shift = { handled: 14, muted: 9, banned: 3, ignored: 2 };
+      const state = reduce(initialState("c"), { type: "loaded", item: null, pending: 0, shift }).state;
+      expect(renderScreen(state).body).toBe("Queue clear\nShift: 14 handled 9 mute 3 ban 2 ignore");
+    });
   });
 });

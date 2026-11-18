@@ -1,9 +1,9 @@
-import type { Action, ActionRequest, ActionResult, FlaggedItem, QueueStats } from "./types";
+import type { Action, ActionRequest, ActionResult, FlaggedItem, QueueStats, ShiftStats } from "./types";
 
 export interface QueueClient {
-  next(skipped: string[]): Promise<{ item: FlaggedItem | null; pending: number }>;
-  act(itemId: string, request: ActionRequest): Promise<ActionResult>;
-  undo(token: string): Promise<void>;
+  next(skipped: string[]): Promise<{ item: FlaggedItem | null; pending: number; shift: ShiftStats }>;
+  act(itemId: string, request: ActionRequest, wave?: boolean): Promise<ActionResult>;
+  undo(tokens: string[]): Promise<void>;
   transcribe(pcm16: Uint8Array): Promise<string>;
   intent(text: string, itemId: string): Promise<ActionRequest>;
 }
@@ -53,20 +53,21 @@ export class HttpClient implements QueueClient {
     const query = skipped.length ? `?skip=${encodeURIComponent(skipped.join(","))}` : "";
     const [nextRes, statsRes] = await Promise.all([this.request(`/queue/next${query}`), this.request("/queue/stats")]);
     const stats = (await statsRes.json()) as QueueStats;
-    if (nextRes.status === 204) return { item: null, pending: stats.pending };
-    return { item: (await nextRes.json()) as FlaggedItem, pending: stats.pending };
+    if (nextRes.status === 204) return { item: null, pending: stats.pending, shift: stats };
+    return { item: (await nextRes.json()) as FlaggedItem, pending: stats.pending, shift: stats };
   }
 
-  async act(itemId: string, request: ActionRequest) {
+  async act(itemId: string, request: ActionRequest, wave = false) {
     const response = await this.request(`/queue/${encodeURIComponent(itemId)}/action`, {
       method: "POST",
-      body: JSON.stringify(request),
+      body: JSON.stringify(wave ? { ...request, wave } : request),
     });
     return (await response.json()) as ActionResult;
   }
 
-  async undo(token: string) {
-    await this.request("/queue/undo", { method: "POST", body: JSON.stringify({ undoToken: token }) });
+  async undo(tokens: string[]) {
+    const body = tokens.length > 1 ? { undoTokens: tokens } : { undoToken: tokens[0] };
+    await this.request("/queue/undo", { method: "POST", body: JSON.stringify(body) });
   }
 
   async transcribe(pcm16: Uint8Array) {
@@ -98,6 +99,7 @@ const FIXTURES: FlaggedItem[] = [
     reason: "Fake support + wallet link",
     offenses: 3,
     suggested: { action: "ban", deleteRecent: 10 },
+    waveSize: 1,
     flaggedAt: new Date().toISOString(),
   },
   {
@@ -113,6 +115,7 @@ const FIXTURES: FlaggedItem[] = [
     reason: "Giveaway scam link",
     offenses: 1,
     suggested: { action: "mute", muteMinutes: 60, deleteRecent: 1 },
+    waveSize: 1,
     flaggedAt: new Date().toISOString(),
   },
   {
@@ -128,6 +131,7 @@ const FIXTURES: FlaggedItem[] = [
     reason: "Self promotion",
     offenses: 1,
     suggested: { action: "ignore" },
+    waveSize: 1,
     flaggedAt: new Date().toISOString(),
   },
 ];
@@ -138,7 +142,7 @@ export class MockClient implements QueueClient {
 
   async next(skipped: string[]) {
     const item = this.queue.find((i) => !skipped.includes(i.id)) ?? null;
-    return { item, pending: this.queue.length };
+    return { item, pending: this.queue.length, shift: { handled: 0, muted: 0, banned: 0, ignored: 0 } };
   }
 
   async act(itemId: string, _request: ActionRequest) {
@@ -148,10 +152,12 @@ export class MockClient implements QueueClient {
     return { undoToken: `undo-${itemId}` };
   }
 
-  async undo(token: string) {
-    const item = this.undoStack.get(token);
-    if (item) this.queue.unshift(item);
-    this.undoStack.delete(token);
+  async undo(tokens: string[]) {
+    for (const token of tokens) {
+      const item = this.undoStack.get(token);
+      if (item) this.queue.unshift(item);
+      this.undoStack.delete(token);
+    }
   }
 
   async transcribe(_pcm16: Uint8Array) {

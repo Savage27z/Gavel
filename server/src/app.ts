@@ -34,15 +34,25 @@ export function buildApp({ service, pairingCode, transcriber, production }: AppO
     return item ?? reply.code(204).send();
   });
 
-  app.get("/queue/stats", async () => service.queue.stats());
+  app.get("/queue/stats", async () => ({ ...service.queue.stats(), ...service.queue.shiftStats() }));
 
-  app.post<{ Params: { id: string }; Body: { action?: Action; deleteRecent?: number; muteMinutes?: number } }>(
+  app.get<{ Querystring: { limit?: string } }>("/audit", async (req) => service.queue.auditLog(Number(req.query.limit) || 50));
+
+  app.post<{ Params: { id: string }; Body: { action?: Action; deleteRecent?: number; muteMinutes?: number; wave?: boolean } }>(
     "/queue/:id/action",
     async (req, reply) => {
-      const { action, deleteRecent, muteMinutes } = req.body ?? {};
+      const { action, deleteRecent, muteMinutes, wave } = req.body ?? {};
       if (!action || !actions.includes(action)) return reply.code(400).send({ error: "invalid action" });
+      const request = { action, deleteRecent, muteMinutes };
       try {
-        const result = await service.act(req.params.id, { action, deleteRecent, muteMinutes });
+        if (wave) {
+          const result = await service.actWave(req.params.id, request);
+          if (!result) return reply.code(404).send({ error: "not found" });
+          const { undoTokens, failed } = result;
+          if (!undoTokens.length) return reply.code(502).send({ error: "telegram failed", ok: false, applied: 0, failed });
+          return { ok: failed === 0, applied: undoTokens.length, failed, undoToken: undoTokens[0], undoTokens };
+        }
+        const result = await service.act(req.params.id, request);
         if (!result) return reply.code(404).send({ error: "not found" });
         return { ok: true, undoToken: result.undoToken };
       } catch (err) {
@@ -51,10 +61,11 @@ export function buildApp({ service, pairingCode, transcriber, production }: AppO
     },
   );
 
-  app.post<{ Body: { undoToken?: string } }>("/queue/undo", async (req, reply) => {
+  app.post<{ Body: { undoToken?: string; undoTokens?: string[] } }>("/queue/undo", async (req, reply) => {
+    const tokens = req.body?.undoTokens ?? (req.body?.undoToken ? [req.body.undoToken] : []);
     let ok = false;
     try {
-      ok = req.body?.undoToken ? await service.undo(req.body.undoToken) : false;
+      ok = tokens.length ? await service.undoMany(tokens) : false;
     } catch {
       return reply.code(502).send({ error: "telegram failed, try again" });
     }
@@ -84,7 +95,7 @@ export function buildApp({ service, pairingCode, transcriber, production }: AppO
       const base = Date.now();
       seeds.forEach((s, i) =>
         service.queue.add({
-          chatId: -1001000000000 - i,
+          chatId: -1001000000000 - [...new Set(seeds.map((x) => x.chatTitle))].indexOf(s.chatTitle),
           chatTitle: s.chatTitle,
           userId: 7000 + i,
           username: s.username,
