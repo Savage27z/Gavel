@@ -1,7 +1,7 @@
 import type { Action, ActionRequest, ActionResult, FlaggedItem, QueueStats, ShiftStats } from "./types";
 
 export interface QueueClient {
-  next(skipped: string[]): Promise<{ item: FlaggedItem | null; pending: number; shift: ShiftStats }>;
+  next(skipped: string[]): Promise<{ item: FlaggedItem | null; pending: number; shift: ShiftStats & { high?: number } }>;
   act(itemId: string, request: ActionRequest, wave?: boolean): Promise<ActionResult>;
   undo(tokens: string[]): Promise<void>;
   transcribe(pcm16: Uint8Array): Promise<string>;
@@ -99,6 +99,7 @@ const FIXTURES: FlaggedItem[] = [
     reason: "Fake support + wallet link",
     offenses: 3,
     suggested: { action: "ban", deleteRecent: 10 },
+    ownSuggested: { action: "ban", deleteRecent: 10 },
     waveSize: 1,
     flaggedAt: new Date().toISOString(),
   },
@@ -115,6 +116,7 @@ const FIXTURES: FlaggedItem[] = [
     reason: "Giveaway scam link",
     offenses: 1,
     suggested: { action: "mute", muteMinutes: 60, deleteRecent: 1 },
+    ownSuggested: { action: "mute", muteMinutes: 60, deleteRecent: 1 },
     waveSize: 1,
     flaggedAt: new Date().toISOString(),
   },
@@ -131,6 +133,7 @@ const FIXTURES: FlaggedItem[] = [
     reason: "Self promotion",
     offenses: 1,
     suggested: { action: "ignore" },
+    ownSuggested: { action: "ignore" },
     waveSize: 1,
     flaggedAt: new Date().toISOString(),
   },

@@ -31,7 +31,7 @@ export class ModQueue {
     }
   }
 
-  add(input: Omit<FlaggedItem, "id" | "flaggedAt" | "offenses" | "suggested" | "waveSize"> & { flaggedAt?: string; offenses?: number }): FlaggedItem {
+  add(input: Omit<FlaggedItem, "id" | "flaggedAt" | "offenses" | "suggested" | "ownSuggested" | "waveSize"> & { flaggedAt?: string; offenses?: number }): FlaggedItem {
     const key = `${input.chatId}:${input.userId}`;
     const offenses = input.offenses ?? (this.offenses.get(key) ?? 0) + 1;
     if (input.offenses === undefined) this.offenses.set(key, offenses);
@@ -112,6 +112,10 @@ export class ModQueue {
     return { pending: this.pending.length, handled: this.handled };
   }
 
+  pendingHigh(): number {
+    return this.pending.filter((i) => i.risk === "high").length;
+  }
+
   shiftStats() {
     const live = this.audit.filter((e) => !e.undone);
     const count = (action: AuditEntry["action"]) => live.filter((e) => e.action === action).length;
@@ -125,7 +129,7 @@ export class ModQueue {
   private withWave(item: StoredItem): FlaggedItem {
     const members = waveOf(item, this.pending);
     const suggested = members.length > 1 ? members.map((m) => m.suggested).reduce(gentlest) : item.suggested;
-    return { ...item, suggested, waveSize: members.length };
+    return { ...item, suggested, ownSuggested: item.suggested, waveSize: members.length };
   }
 
   private save() {

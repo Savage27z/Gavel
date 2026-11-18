@@ -15,6 +15,7 @@ export interface FlaggedItem {
   flaggedAt: string;
   offenses: number;
   suggested: ActionRequest;
+  ownSuggested: ActionRequest;
   waveSize: number;
 }
 
@@ -32,6 +33,7 @@ export interface ActionResult {
 }
 
 export interface ShiftStats {
+  high?: number;
   handled: number;
   muted: number;
   banned: number;
@@ -41,4 +43,5 @@ export interface ShiftStats {
 export interface QueueStats extends ShiftStats {
   pending: number;
   undone: number;
+  high?: number;
 }

@@ -20,6 +20,7 @@ export interface State {
   skipped: string[];
   undoTokens: string[];
   shift: ShiftStats | null;
+  knownHigh: number;
   alert: boolean;
   message: string;
   error: string | null;
@@ -32,7 +33,7 @@ export type Gesture = "press" | "doublePress" | "swipeUp" | "swipeDown" | "longP
 export type Msg =
   | { type: "paired"; code: string }
   | { type: "gesture"; gesture: Gesture }
-  | { type: "loaded"; item: FlaggedItem | null; pending: number; shift?: ShiftStats }
+  | { type: "loaded"; item: FlaggedItem | null; pending: number; shift?: ShiftStats; high?: number }
   | { type: "acted"; request: ActionRequest; undoToken: string; undoTokens?: string[]; applied?: number; failed?: number }
   | { type: "undone" }
   | { type: "voiceHeard"; text: string }
@@ -41,7 +42,7 @@ export type Msg =
   | { type: "failed"; message: string }
   | { type: "toastDone" }
   | { type: "tick" }
-  | { type: "polled"; item: FlaggedItem | null; pending: number }
+  | { type: "polled"; item: FlaggedItem | null; pending: number; high?: number }
   | { type: "unpair" };
 
 export type Effect =
@@ -72,6 +73,7 @@ export function initialState(code: string | null): State {
     skipped: [],
     undoTokens: [],
     shift: null,
+    knownHigh: 0,
     alert: false,
     message: "",
     error: null,
@@ -137,7 +139,7 @@ function onCardGesture(state: State, gesture: Gesture): Step {
     case "press":
       return act(state, state.item?.suggested ?? { action: "mute", muteMinutes: 1440, deleteRecent: 1 }, (state.item?.waveSize ?? 1) > 1);
     case "doublePress":
-      return act(state, { action: "ignore" });
+      return act(state, { action: "ignore" }, (state.item?.waveSize ?? 1) > 1);
     case "swipeDown":
       return state.item ? load(state, [...state.skipped, state.item.id]) : load(state, state.skipped);
     case "swipeUp":
@@ -158,7 +160,9 @@ export function reduce(state: State, msg: Msg): Step {
   }
   if (msg.type === "polled") {
     if (state.phase !== "card") return { state, effect: NONE };
-    const alert = !!state.item && !!msg.item && msg.item.risk === "high" && msg.item.id !== state.item.id && state.item.risk !== "high";
+    const swapped = !!state.item && !!msg.item && msg.item.risk === "high" && msg.item.id !== state.item.id && state.item.risk !== "high";
+    const arrived = msg.high !== undefined && msg.high > state.knownHigh;
+    const alert = swapped || arrived;
     return { state: { ...state, pending: msg.pending, alert }, effect: NONE };
   }
   if (msg.type === "paired") {
@@ -181,9 +185,9 @@ export function reduce(state: State, msg: Msg): Step {
     case "loading":
       if (msg.type !== "loaded") return { state, effect: NONE };
       if (!msg.item) {
-        return { state: { ...state, phase: "empty", item: null, pending: 0, skipped: [], alert: false, shift: msg.shift ?? null }, effect: NONE };
+        return { state: { ...state, phase: "empty", item: null, pending: 0, skipped: [], alert: false, shift: msg.shift ?? null, knownHigh: msg.high ?? 0 }, effect: NONE };
       }
-      return { state: { ...state, phase: "card", item: msg.item, pending: msg.pending, alert: false, shift: msg.shift ?? state.shift }, effect: NONE };
+      return { state: { ...state, phase: "card", item: msg.item, pending: msg.pending, alert: false, shift: msg.shift ?? state.shift, knownHigh: msg.high ?? state.knownHigh }, effect: NONE };
 
     case "card":
       return msg.type === "gesture" ? onCardGesture(state, msg.gesture) : { state, effect: NONE };

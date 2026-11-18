@@ -96,10 +96,10 @@ async function boot(): Promise<void> {
     await guarded(async () => {
       if (effect.type === "fetchNext") {
         const { item, pending, shift } = await api.next(effect.skipped);
-        dispatch({ type: "loaded", item, pending, shift });
+        dispatch({ type: "loaded", item, pending, shift, high: shift.high });
       } else if (effect.type === "poll") {
-        const { item, pending } = await api.next([]);
-        dispatch({ type: "polled", item, pending });
+        const { item, pending, shift } = await api.next([]);
+        dispatch({ type: "polled", item, pending, high: shift.high });
       } else if (effect.type === "act") {
         const result = await api.act(effect.itemId, effect.request, effect.wave);
         dispatch({ type: "acted", request: effect.request, ...result });

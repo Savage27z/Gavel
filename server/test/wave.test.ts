@@ -133,7 +133,7 @@ describe("audit and stats", () => {
     expect(log[0]).toMatchObject({ itemId: items[2]!.id, action: "ignore", undone: true, waveSize: 1 });
     const full = (await app.inject({ url: "/audit", headers })).json();
     expect(full[2]).toMatchObject({ action: "mute", muteMinutes: 60, deleteRecent: 1, chatId: -1, username: "a" });
-    expect((await app.inject({ url: "/queue/stats", headers })).json()).toEqual({ pending: 1, handled: 2, muted: 1, banned: 1, ignored: 0, undone: 1 });
+    expect((await app.inject({ url: "/queue/stats", headers })).json()).toEqual({ pending: 1, handled: 2, muted: 1, banned: 1, ignored: 0, undone: 1, high: 1 });
   });
 
   it("persists the audit log with the queue file", async () => {

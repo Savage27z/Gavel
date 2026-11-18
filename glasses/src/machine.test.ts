@@ -18,6 +18,7 @@ const item: FlaggedItem = {
   offenses: 1,
   waveSize: 1,
   suggested: { action: "mute", muteMinutes: 1440, deleteRecent: 1 },
+  ownSuggested: { action: "mute", muteMinutes: 1440, deleteRecent: 1 },
 };
 
 const card = (): State => ({ ...initialState("c"), phase: "card", item, pending: 3 });
@@ -93,6 +94,35 @@ describe("machine", () => {
     const screen = renderScreen(state);
     expect(screen.footer).toContain("Press ban+del10");
     expect(screen.body).toContain("#3 offense");
+  });
+
+  it("NEW HIGH alert fires when more high items arrive while viewing a high card, and clears on load", () => {
+    const viewing = reduce({ ...initialState("c"), phase: "loading" }, { type: "loaded", item, pending: 3, high: 1 }).state;
+    expect(viewing.knownHigh).toBe(1);
+    const same = reduce(viewing, { type: "polled", item, pending: 3, high: 1 }).state;
+    expect(same.alert).toBe(false);
+    const more = reduce(viewing, { type: "polled", item, pending: 4, high: 2 }).state;
+    expect(more.alert).toBe(true);
+    expect(renderScreen(more).header).toContain("NEW HIGH");
+    expect(more.item?.id).toBe("a");
+    expect(reduce({ ...more, phase: "loading" }, { type: "loaded", item, pending: 4, high: 2 }).state.alert).toBe(false);
+  });
+
+  it("double press ignores the whole wave and labels it", () => {
+    const wave = { ...item, waveSize: 4 };
+    const state = { ...card(), item: wave };
+    expect(reduce(state, { type: "gesture", gesture: "doublePress" }).effect).toMatchObject({ type: "act", request: { action: "ignore" }, wave: true });
+    expect(renderScreen(state).footer).toContain("2x ignore x4");
+    expect(reduce(card(), { type: "gesture", gesture: "doublePress" }).effect).not.toHaveProperty("wave");
+  });
+
+  it("a wave card says when it acts more gently than the lead item alone", () => {
+    const wave = { ...item, waveSize: 4, ownSuggested: { action: "ban" as const, deleteRecent: 10 } };
+    const screen = renderScreen({ ...card(), item: wave });
+    expect(screen.body).toContain("This one alone: ban+del10");
+    expect(screen.footer).toContain("Press mute 1d+del x4");
+    const same = renderScreen({ ...card(), item: { ...item, waveSize: 4 } });
+    expect(same.body).not.toContain("This one alone");
   });
 
   it("swipe down cancels a pending voice command", () => {

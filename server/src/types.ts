@@ -16,10 +16,11 @@ export interface FlaggedItem {
   offenses: number;
   waveSize: number;
   suggested: ActionRequest;
+  ownSuggested: ActionRequest;
   demo?: boolean;
 }
 
-export type StoredItem = Omit<FlaggedItem, "waveSize">;
+export type StoredItem = Omit<FlaggedItem, "waveSize" | "ownSuggested">;
 
 export interface AuditEntry {
   at: string;

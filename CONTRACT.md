@@ -16,6 +16,7 @@ FlaggedItem = {
   offenses: number,        // times this user has been flagged in this chat, including this one
   waveSize: number,        // >= 1; pending items in the same chat sharing a URL domain or near-identical text (Jaccard >= 0.8 after lowercasing, stripping digits/punctuation). Computed at read time, not persisted
   suggested: { action: Action, deleteRecent?: number, muteMinutes?: number }  // server's recommended action, executed by press
+  ownSuggested: { action: Action, deleteRecent?: number, muteMinutes?: number },  // this item's own suggestion; differs from suggested when it is in a wave (wave takes the gentlest)
 }
 Action = "ban" | "mute" | "ignore"
 

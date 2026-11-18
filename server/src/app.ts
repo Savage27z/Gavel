@@ -34,7 +34,7 @@ export function buildApp({ service, pairingCode, transcriber, production }: AppO
     return item ?? reply.code(204).send();
   });
 
-  app.get("/queue/stats", async () => ({ ...service.queue.stats(), ...service.queue.shiftStats() }));
+  app.get("/queue/stats", async () => ({ ...service.queue.stats(), ...service.queue.shiftStats(), high: service.queue.pendingHigh() }));
 
   app.get<{ Querystring: { limit?: string } }>("/audit", async (req) => service.queue.auditLog(Number(req.query.limit) || 50));
 
