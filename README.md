@@ -70,7 +70,7 @@ Telegram does not deliver bot messages to other bots in groups. So a second post
 
 `demo/holdout-messages.json` has 20 further messages (10 scams, 10 hard benign cases such as real warnings, docs links and legitimate "DM me" offers). It was written after the rules, scored once before any tuning, and then used to fix one false positive, so it is no longer a clean test.
 
-Rules-only results (`server/test/eval.test.ts`): dev set 14/14 scams flagged, 0 false positives (tuned on this set); held-out set 7/10 scams flagged, 0 false positives after the fix (8/10 with 1 false positive before it). Misses are phrased without any rule keyword, which is what the optional LLM pass (`LLM_API_KEY`) is for; it also now sees anything the rules score at 0.1 or more instead of only already-flagged messages. The LLM path is covered by unit tests with a mocked API but has not been run against a real model.
+Rules-only results (`server/test/eval.test.ts`): dev set 14/14 scams flagged, 0 false positives (tuned on this set); held-out set 7/10 scams flagged, 0 false positives after the fix (8/10 with 1 false positive before it). Misses are phrased without any rule keyword, which is what the optional LLM pass (`LLM_API_KEY`) is for; it also now sees anything the rules score at 0.1 or more instead of only already-flagged messages. The LLM path has no tests and has not been run against a real model.
 
 ## What existed before Nov 23
 
