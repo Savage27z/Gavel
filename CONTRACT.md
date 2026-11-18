@@ -1,4 +1,4 @@
-# Mod Queue API contract (source of truth)
+# Gavel API contract (source of truth)
 
 Backend (Node 24 + TypeScript, Fastify) on http://localhost:8787. All JSON. Auth: header `x-pairing-code` must equal env PAIRING_CODE (glasses app has no login UI; user types the code once, stored in localStorage).
 
