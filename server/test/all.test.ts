@@ -58,6 +58,11 @@ describe("intent parsing", () => {
   });
   it("ignore", () => {
     expect(parseIntent("ignore this one")).toEqual({ action: "ignore" });
+    expect(parseIntent("not a scam")).toEqual({ action: "ignore" });
+    expect(parseIntent("do not ban them, keep it")).toBeNull();
+    expect(parseIntent("don't mute")).toBeNull();
+    expect(parseIntent("skip")).toBeNull();
+    expect(parseIntent("ignore and delete their last 5")).toBeNull();
   });
   it("rejects gibberish", () => {
     expect(parseIntent("what is the weather")).toBeNull();

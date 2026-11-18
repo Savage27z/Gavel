@@ -2,6 +2,7 @@ import {
   AudioInputSource,
   StartUpPageCreateResult,
   CreateStartUpPageContainer,
+  RebuildPageContainer,
   TextContainerProperty,
   TextContainerUpgrade,
   waitForEvenAppBridge,
@@ -15,6 +16,7 @@ import { concatChunks } from "./voice";
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
 const MOCK = import.meta.env.VITE_MOCK === "1" || new URLSearchParams(location.search).has("mock");
 const STORAGE_KEY = "gavel.pairingCode";
+const POLL_MS = 4000;
 
 const HEADER = { id: 1, name: "header" } as const;
 const BODY = { id: 2, name: "body" } as const;
@@ -27,6 +29,7 @@ function readPairingCode(): string | null {
 }
 
 async function boot(): Promise<void> {
+  const bootedAt = Date.now();
   const bridge = await waitForEvenAppBridge();
   let state: State = initialState(readPairingCode());
   let client: QueueClient | null = null;
@@ -66,6 +69,10 @@ async function boot(): Promise<void> {
     try {
       await task();
     } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        dispatch({ type: "unpair" });
+        return;
+      }
       dispatch({ type: "failed", message: error instanceof ApiError ? error.message : "Offline. Press to retry" });
     }
   }
@@ -77,6 +84,7 @@ async function boot(): Promise<void> {
       else localStorage.removeItem(STORAGE_KEY);
       client = effect.code ? clientFor(effect.code) : null;
       if (form) form.hidden = effect.code !== null;
+      if (effect.code) await run({ type: "fetchNext", skipped: [] });
       return;
     }
     if (effect.type === "scheduleToast") {
@@ -89,6 +97,9 @@ async function boot(): Promise<void> {
       if (effect.type === "fetchNext") {
         const { item, pending } = await api.next(effect.skipped);
         dispatch({ type: "loaded", item, pending });
+      } else if (effect.type === "poll") {
+        const { item, pending } = await api.next([]);
+        dispatch({ type: "polled", item, pending });
       } else if (effect.type === "act") {
         const result = await api.act(effect.itemId, effect.request);
         dispatch({ type: "acted", request: effect.request, undoToken: result.undoToken });
@@ -114,22 +125,12 @@ async function boot(): Promise<void> {
     });
   }
 
-  const created = await bridge.createStartUpPageContainer(new CreateStartUpPageContainer({
-    containerTotalNum: 3,
-    textObject: [
-      new TextContainerProperty({ xPosition: 0, yPosition: 0, width: 576, height: 40, containerID: HEADER.id, containerName: HEADER.name, content: "GAVEL", isEventCapture: 0 }),
-      new TextContainerProperty({ xPosition: 0, yPosition: 44, width: 576, height: 190, containerID: BODY.id, containerName: BODY.name, content: "", isEventCapture: 1 }),
-      new TextContainerProperty({ xPosition: 0, yPosition: 240, width: 576, height: 48, containerID: FOOTER.id, containerName: FOOTER.name, content: "", isEventCapture: 0 }),
-    ],
-  }));
-  if (created !== StartUpPageCreateResult.success) throw new Error(`Startup page failed: ${created}`);
-
   bridge.onEvenHubEvent((event) => {
     if (event.audioEvent) {
       chunks.push(event.audioEvent.audioPcm);
       return;
     }
-    const gesture = toGesture(event);
+    const gesture = toGesture(event, Date.now() - bootedAt);
     if (gesture) dispatch({ type: "gesture", gesture });
   });
 
@@ -139,10 +140,24 @@ async function boot(): Promise<void> {
     if (code) dispatch({ type: "paired", code });
   });
 
+  const layout = {
+    containerTotalNum: 3,
+    textObject: [
+      new TextContainerProperty({ xPosition: 0, yPosition: 0, width: 576, height: 40, containerID: HEADER.id, containerName: HEADER.name, content: "GAVEL", isEventCapture: 0 }),
+      new TextContainerProperty({ xPosition: 0, yPosition: 44, width: 576, height: 190, containerID: BODY.id, containerName: BODY.name, content: "", isEventCapture: 1 }),
+      new TextContainerProperty({ xPosition: 0, yPosition: 240, width: 576, height: 48, containerID: FOOTER.id, containerName: FOOTER.name, content: "", isEventCapture: 0 }),
+    ],
+  };
+  const created = await bridge.createStartUpPageContainer(new CreateStartUpPageContainer(layout));
+  if (created !== StartUpPageCreateResult.success && !(await bridge.rebuildPageContainer(new RebuildPageContainer(layout)))) {
+    throw new Error(`Startup page failed: ${created}`);
+  }
+
   if (state.code) client = clientFor(state.code);
   form.hidden = state.code !== null;
   render();
   void run(bootEffect(state));
+  setInterval(() => dispatch({ type: "tick" }), POLL_MS);
 }
 
 void boot();

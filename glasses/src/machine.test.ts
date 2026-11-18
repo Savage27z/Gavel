@@ -37,11 +37,11 @@ describe("machine", () => {
     expect(renderScreen(step.state).body).toBe("Queue clear");
   });
 
-  it("press bans, double press ignores", () => {
+  it("press mutes and deletes, double press ignores", () => {
     expect(reduce(card(), { type: "gesture", gesture: "press" }).effect).toEqual({
       type: "act",
       itemId: "a",
-      request: { action: "ban" },
+      request: { action: "mute", muteMinutes: 1440, deleteRecent: 1 },
     });
     expect(reduce(card(), { type: "gesture", gesture: "doublePress" }).effect).toMatchObject({
       request: { action: "ignore" },
@@ -70,13 +70,44 @@ describe("machine", () => {
     expect(reduce(card(), { type: "gesture", gesture: "swipeUp" }).effect.type).toBe("none");
   });
 
-  it("long press records, release transcribes, intent acts", () => {
+  it("long press records, release transcribes, intent waits for confirmation", () => {
     const listening = reduce(card(), { type: "gesture", gesture: "longPress" });
     expect(listening.effect.type).toBe("startRecording");
     const released = reduce(listening.state, { type: "gesture", gesture: "longRelease" });
     expect(released.effect).toEqual({ type: "stopRecording", itemId: "a" });
-    const acted = reduce(released.state, { type: "voiceIntent", request: { action: "ban", deleteRecent: 10 } });
-    expect(acted.effect).toMatchObject({ type: "act", request: { deleteRecent: 10 } });
+    const asked = reduce(released.state, { type: "voiceIntent", request: { action: "ban", deleteRecent: 10 } });
+    expect(asked.state.phase).toBe("confirm");
+    expect(asked.effect.type).toBe("none");
+    expect(renderScreen(asked.state).body).toContain("Banned + deleted 10");
+    const confirmed = reduce(asked.state, { type: "gesture", gesture: "press" });
+    expect(confirmed.effect).toMatchObject({ type: "act", itemId: "a", request: { action: "ban", deleteRecent: 10 } });
+  });
+
+  it("swipe down cancels a pending voice command", () => {
+    const asked = reduce(card(), { type: "voiceIntent", request: { action: "ban" } });
+    const confirm = { ...asked.state, phase: "confirm" as const, request: { action: "ban" as const } };
+    const cancelled = reduce(confirm, { type: "gesture", gesture: "swipeDown" });
+    expect(cancelled.state.phase).toBe("card");
+    expect(cancelled.effect.type).toBe("none");
+  });
+
+  it("tick refreshes an empty queue and polls on a card, but never swaps the card", () => {
+    expect(reduce({ ...initialState("c"), phase: "empty" }, { type: "tick" }).effect).toMatchObject({ type: "fetchNext" });
+    expect(reduce(card(), { type: "tick" }).effect).toEqual({ type: "poll" });
+    const other = { ...item, id: "b", risk: "high" as const };
+    const polled = reduce(card(), { type: "polled", item: other, pending: 9 });
+    expect(polled.state.item?.id).toBe("a");
+    expect(polled.state.pending).toBe(9);
+  });
+
+  it("tick retries after an error so the glasses recover on their own", () => {
+    const failed = reduce(card(), { type: "failed", message: "Offline. Press to retry" });
+    expect(reduce(failed.state, { type: "tick" }).effect).toMatchObject({ type: "fetchNext" });
+  });
+
+  it("ticks are ignored while an action is in flight", () => {
+    const busy = { ...card(), phase: "busy" as const };
+    expect(reduce(busy, { type: "tick" }).effect.type).toBe("none");
   });
 
   it("voice failure returns to the card after the toast", () => {

@@ -26,8 +26,11 @@ export function parseIntent(raw: string): ActionRequest | null {
   const text = raw.toLowerCase().replace(/[.,!?]/g, " ");
   const isBan = /\b(ban|kick|remove|block|nuke|boot)\b/.test(text);
   const isMute = /\b(mute|silence|timeout|time out|restrict)\b/.test(text);
-  const isIgnore = /\b(ignore|skip|dismiss|leave|keep|safe|fine|allow|not spam|no)\b/.test(text);
+  const isIgnore = /\b(ignore|dismiss|leave|keep|safe|fine|allow)\b|\bnot\s+(a\s+)?(spam|scam)\b/.test(text);
   if (!isBan && !isMute && !isIgnore) return null;
+  if (/\bnot\s+(a\s+)?(spam|scam)\b/.test(text)) return { action: "ignore" };
+  if ((isBan || isMute) && /\b(don'?t|do\s+not|never|not|no)\b/.test(text)) return null;
+  if (isIgnore && !isBan && !isMute && /\b(delete|purge|wipe|clear)\b/.test(text)) return null;
 
   const del = text.match(/(?:delete|remove|purge|wipe|clear)\s+(?:their\s+|all\s+their\s+|the\s+)?(?:last\s+|latest\s+|recent\s+)?(\w+)\s+(?:messages?|posts?|msgs?)?/);
   const lastN = text.match(/last\s+(\w+)/);

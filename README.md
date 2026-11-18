@@ -15,11 +15,11 @@ Crypto community moderators are always on call. Scams arrive in bursts (fake sup
 
 | Gesture | Action |
 |---|---|
-| Press | Ban (and delete the message) |
+| Press | Mute 24 h and delete the message (undo within 60 s) |
 | Double press | Ignore |
 | Swipe down | Next / skip |
 | Swipe up | Undo the last action (valid 60 s) |
-| Long press | Voice command, e.g. "mute for a day", "ban and delete their last 10" |
+| Long press | Voice command, e.g. "mute for a day", "ban and delete their last 10". The parsed command is shown and needs a press to confirm. |
 
 Nothing is ever moderated automatically. The server only acts when the glasses send an explicit action.
 

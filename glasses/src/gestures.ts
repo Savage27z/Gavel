@@ -10,8 +10,13 @@ const BY_TYPE: Partial<Record<OsEventTypeList, Gesture>> = {
   [OsEventTypeList.LONG_PRESS_RELEASE_EVENT]: "longRelease",
 };
 
-export function toGesture(event: EvenHubEvent): Gesture | null {
-  const source = event.textEvent ?? event.sysEvent ?? event.listEvent;
+export const STARTUP_QUIET_MS = 1500;
+
+export function toGesture(event: EvenHubEvent, msSinceBoot: number): Gesture | null {
+  if (event.textEvent) return BY_TYPE[event.textEvent.eventType ?? OsEventTypeList.CLICK_EVENT] ?? null;
+  const source = event.sysEvent ?? event.listEvent;
   if (!source) return null;
-  return BY_TYPE[source.eventType ?? OsEventTypeList.CLICK_EVENT] ?? null;
+  if (source.eventType !== undefined) return BY_TYPE[source.eventType] ?? null;
+  if (event.sysEvent?.eventSource !== undefined && msSinceBoot > STARTUP_QUIET_MS) return "press";
+  return null;
 }

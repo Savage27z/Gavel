@@ -34,4 +34,4 @@ POST /dev/seed                         -> { added: number }  (only when NODE_ENV
 - Classifier: cheap rules first (links, new account, "DM me", "support", seed phrase / wallet words), optional LLM refinement if LLM_API_KEY set; must work offline with rules only.
 
 ## Glasses gestures (Even Hub)
-press = confirm primary action (ban), double press = ignore, swipe down = next/skip, swipe up = undo last action, long press = open voice command (mic -> STT -> /voice/intent).
+press = mute 24 h and delete that message (reversible; a ban needs a voice command plus a confirm press), double press = ignore, swipe down = next/skip, swipe up = undo last action, long press = open voice command (mic -> STT -> /voice/intent), then a confirm screen: press = yes, swipe down = cancel.

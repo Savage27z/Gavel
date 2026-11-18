@@ -9,7 +9,8 @@ export type Phase =
   | "empty"
   | "error"
   | "listening"
-  | "transcribing";
+  | "transcribing"
+  | "confirm";
 
 export interface State {
   phase: Phase;
@@ -21,6 +22,7 @@ export interface State {
   message: string;
   error: string | null;
   afterToast: "next" | "stay";
+  request: ActionRequest | null;
 }
 
 export type Gesture = "press" | "doublePress" | "swipeUp" | "swipeDown" | "longPress" | "longRelease";
@@ -36,12 +38,15 @@ export type Msg =
   | { type: "voiceFailed"; message: string }
   | { type: "failed"; message: string }
   | { type: "toastDone" }
+  | { type: "tick" }
+  | { type: "polled"; item: FlaggedItem | null; pending: number }
   | { type: "unpair" };
 
 export type Effect =
   | { type: "none" }
   | { type: "savePairing"; code: string | null }
   | { type: "fetchNext"; skipped: string[] }
+  | { type: "poll" }
   | { type: "act"; itemId: string; request: ActionRequest }
   | { type: "undo"; token: string }
   | { type: "startRecording" }
@@ -67,6 +72,7 @@ export function initialState(code: string | null): State {
     message: "",
     error: null,
     afterToast: "next",
+    request: null,
   };
 }
 
@@ -79,7 +85,7 @@ export function describeAction(request: ActionRequest): string {
     return request.deleteRecent ? `Banned + deleted ${request.deleteRecent}` : "Banned";
   }
   if (request.action === "mute") {
-    return `Muted ${formatMinutes(request.muteMinutes ?? 1440)}`;
+    return `Muted ${formatMinutes(request.muteMinutes ?? 1440)}${request.deleteRecent ? " + deleted" : ""}`;
   }
   return "Ignored";
 }
@@ -105,7 +111,7 @@ function load(state: State, skipped: string[]): Step {
 function onCardGesture(state: State, gesture: Gesture): Step {
   switch (gesture) {
     case "press":
-      return act(state, { action: "ban" });
+      return act(state, { action: "mute", muteMinutes: 1440, deleteRecent: 1 });
     case "doublePress":
       return act(state, { action: "ignore" });
     case "swipeDown":
@@ -122,6 +128,15 @@ function onCardGesture(state: State, gesture: Gesture): Step {
 }
 
 export function reduce(state: State, msg: Msg): Step {
+  if (msg.type === "tick") {
+    if (state.phase === "empty") return load(state, []);
+    if (state.phase === "error") return load(state, state.skipped);
+    if (state.phase === "card") return { state, effect: { type: "poll" } };
+    return { state, effect: NONE };
+  }
+  if (msg.type === "polled") {
+    return state.phase === "card" ? { state: { ...state, pending: msg.pending }, effect: NONE } : { state, effect: NONE };
+  }
   if (msg.type === "paired") {
     return {
       state: { ...initialState(msg.code), phase: "loading" },
@@ -199,9 +214,15 @@ export function reduce(state: State, msg: Msg): Step {
       }
       return { state, effect: NONE };
 
+    case "confirm":
+      if (msg.type !== "gesture") return { state, effect: NONE };
+      if (msg.gesture === "press" && state.request) return act({ ...state, phase: "card", request: null }, state.request);
+      if (msg.gesture === "swipeDown" || msg.gesture === "doublePress") return { state: { ...state, phase: "card", request: null }, effect: NONE };
+      return { state, effect: NONE };
+
     case "transcribing":
       if (msg.type === "voiceHeard") return { state: { ...state, message: `"${msg.text}"` }, effect: NONE };
-      if (msg.type === "voiceIntent") return act({ ...state, phase: "card" }, msg.request);
+      if (msg.type === "voiceIntent") return { state: { ...state, phase: "confirm", request: msg.request }, effect: NONE };
       if (msg.type === "voiceFailed") {
         return {
           state: { ...state, phase: "toast", message: msg.message, afterToast: "stay" },

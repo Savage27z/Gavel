@@ -1,4 +1,4 @@
-import type { State } from "./machine";
+import { describeAction, type State } from "./machine";
 import type { FlaggedItem, Risk } from "./types";
 
 export interface Screen {
@@ -36,7 +36,13 @@ export function renderScreen(state: State): Screen {
       return {
         header: `${BADGE[state.item.risk]}   ${state.pending} pending`,
         body: state.phase === "busy" ? state.message : cardBody(state.item),
-        footer: "Press ban | 2x ignore | Dn skip | Up undo | Hold voice",
+        footer: "Press remove | 2x ignore | Dn skip | Up undo | Hold voice",
+      };
+    case "confirm":
+      return {
+        header: "CONFIRM?",
+        body: [describeAction(state.request ?? { action: "ignore" }), state.item ? `@${state.item.username ?? state.item.userId}: "${truncate(state.item.text, 60)}"` : ""].join("\n"),
+        footer: "Press yes | Dn cancel",
       };
     case "toast":
       return {
