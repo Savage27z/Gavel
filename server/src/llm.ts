@@ -2,16 +2,21 @@ import type { Verdict } from "./types.js";
 import { riskFromScore } from "./classifier.js";
 
 export interface Refiner {
+  readonly minScore: number;
   refine(text: string, base: Verdict): Promise<Verdict>;
 }
 
 export class NoopRefiner implements Refiner {
+  readonly minScore = 0.35;
+
   async refine(_text: string, base: Verdict): Promise<Verdict> {
     return base;
   }
 }
 
 export class OpenAIRefiner implements Refiner {
+  readonly minScore = 0.1;
+
   constructor(
     private apiKey: string,
     private baseUrl: string,

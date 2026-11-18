@@ -108,7 +108,7 @@ async function boot(): Promise<void> {
           dispatch({ type: "voiceHeard", text });
           dispatch({ type: "voiceIntent", request: await api.intent(text, effect.itemId) });
         } catch (error) {
-          dispatch({ type: "voiceFailed", message: error instanceof ApiError && error.status === 0 ? error.message : "Did not understand" });
+          dispatch({ type: "voiceFailed", message: error instanceof ApiError ? error.message : "Did not understand" });
         }
       }
     });

@@ -18,7 +18,8 @@ Action = "ban" | "mute" | "ignore"
 
 ## Endpoints
 GET  /health                          -> { ok: true }
-GET  /queue/next                      -> FlaggedItem | 204 (empty). Does not remove the item; oldest highest-risk first.
+GET  /queue/next?skip=id1,id2         -> FlaggedItem | 204 (empty). Does not remove the item; highest risk first, oldest first within a risk. Skipped ids are avoided; when all pending items are skipped the list wraps.
+POST /voice/transcribe  { audio: base64 pcm16 16kHz } -> { text } | 501 when STT is not configured
 GET  /queue/stats                     -> { pending: number, handled: number }
 POST /queue/:id/action  { action: Action, deleteRecent?: number, muteMinutes?: number }
                                       -> { ok: true, undoToken: string }  (ban deletes the message; mute default 1440 min; deleteRecent deletes that user's last N messages in the chat when known)

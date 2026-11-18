@@ -88,8 +88,8 @@ describe("http contract", () => {
   });
 
   it("ban executes, deletes, then undo restores", async () => {
-    const { app, tg, headers } = setup();
-    await app.inject({ method: "POST", url: "/dev/seed", headers });
+    const { app, tg, service, headers } = setup();
+    service.queue.add(item());
     const next = (await app.inject({ url: "/queue/next", headers })).json();
     const res = await app.inject({ method: "POST", url: `/queue/${next.id}/action`, headers, payload: { action: "ban" } });
     expect(res.json().ok).toBe(true);
@@ -101,6 +101,25 @@ describe("http contract", () => {
     expect(undo.json().ok).toBe(true);
     expect(tg.unbanChatMember).toHaveBeenCalledWith(next.chatId, next.userId);
     expect((await app.inject({ url: "/queue/stats", headers })).json().handled).toBe(0);
+  });
+
+  it("skip cycles to the next item and wraps when all are skipped", async () => {
+    const { app, service, headers } = setup();
+    const a = service.queue.add(item());
+    const b = service.queue.add(item());
+    const skipped = (await app.inject({ url: `/queue/next?skip=${a.id}`, headers })).json();
+    expect(skipped.id).toBe(b.id);
+    const wrapped = (await app.inject({ url: `/queue/next?skip=${a.id},${b.id}`, headers })).json();
+    expect([a.id, b.id]).toContain(wrapped.id);
+  });
+
+  it("seeded demo items never reach Telegram", async () => {
+    const { app, tg, headers } = setup();
+    await app.inject({ method: "POST", url: "/dev/seed", headers });
+    const next = (await app.inject({ url: "/queue/next", headers })).json();
+    const res = await app.inject({ method: "POST", url: `/queue/${next.id}/action`, headers, payload: { action: "ban" } });
+    expect(res.json().ok).toBe(true);
+    expect(tg.banChatMember).not.toHaveBeenCalled();
   });
 
   it("mute uses default 1440 minutes", async () => {

@@ -7,6 +7,7 @@ import { WhisperTranscriber } from "./stt.js";
 import { GrammyGateway } from "./telegram.js";
 
 const env = process.env;
+if (env.NODE_ENV === "production" && !env.PAIRING_CODE) throw new Error("PAIRING_CODE is required in production");
 const bot = env.TELEGRAM_BOT_TOKEN ? new Bot(env.TELEGRAM_BOT_TOKEN) : null;
 const refiner = env.LLM_API_KEY
   ? new OpenAIRefiner(env.LLM_API_KEY, env.LLM_BASE_URL ?? "https://api.openai.com/v1", env.LLM_MODEL ?? "gpt-4o-mini")

@@ -33,7 +33,7 @@ export class ModService {
     this.recent.set(key, ids.slice(-RECENT_PER_USER));
 
     let verdict = classify(msg.text, msg.accountAgeDays);
-    if (verdict.score < FLAG_THRESHOLD) return null;
+    if (verdict.score < this.refiner.minScore) return null;
     verdict = await this.refiner.refine(msg.text, verdict);
     if (verdict.score < FLAG_THRESHOLD) return null;
     return this.queue.add({
@@ -53,7 +53,7 @@ export class ModService {
     const item = this.queue.get(id);
     if (!item) return null;
 
-    if (req.action !== "ignore" && this.tg) {
+    if (req.action !== "ignore" && this.tg && !item.demo) {
       const key = `${item.chatId}:${item.userId}`;
       const toDelete = new Set<number>([item.messageId]);
       const known = this.recent.get(key) ?? [];
@@ -79,7 +79,7 @@ export class ModService {
     const entry = this.undos.get(token);
     if (!entry || entry.expires < this.now()) return false;
     this.undos.delete(token);
-    if (this.tg) {
+    if (this.tg && !entry.item.demo) {
       if (entry.action === "ban") await this.tg.unbanChatMember(entry.item.chatId, entry.item.userId);
       if (entry.action === "mute") await this.tg.unmuteChatMember(entry.item.chatId, entry.item.userId);
     }

@@ -35,8 +35,10 @@ export class ModQueue {
     return item;
   }
 
-  next(): FlaggedItem | undefined {
-    return [...this.pending].sort(
+  next(skip: string[] = []): FlaggedItem | undefined {
+    const unskipped = this.pending.filter((i) => !skip.includes(i.id));
+    const candidates = unskipped.length ? unskipped : this.pending;
+    return [...candidates].sort(
       (a, b) => riskRank[b.risk] - riskRank[a.risk] || Date.parse(a.flaggedAt) - Date.parse(b.flaggedAt),
     )[0];
   }

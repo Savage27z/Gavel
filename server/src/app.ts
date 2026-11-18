@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import cors from "@fastify/cors";
 import Fastify from "fastify";
 import { parseIntent } from "./intent.js";
@@ -21,13 +22,15 @@ export function buildApp({ service, pairingCode, transcriber, production }: AppO
 
   app.addHook("onRequest", async (req, reply) => {
     if (req.method === "OPTIONS" || req.url === "/health") return;
-    if (req.headers["x-pairing-code"] !== pairingCode) return reply.code(401).send({ error: "bad pairing code" });
+    const sent = Buffer.from(String(req.headers["x-pairing-code"] ?? ""));
+    const expected = Buffer.from(pairingCode);
+    if (sent.length !== expected.length || !timingSafeEqual(sent, expected)) return reply.code(401).send({ error: "bad pairing code" });
   });
 
   app.get("/health", async () => ({ ok: true }));
 
-  app.get("/queue/next", async (_req, reply) => {
-    const item = service.queue.next();
+  app.get<{ Querystring: { skip?: string } }>("/queue/next", async (req, reply) => {
+    const item = service.queue.next(req.query.skip ? req.query.skip.split(",") : []);
     return item ?? reply.code(204).send();
   });
 
@@ -86,6 +89,7 @@ export function buildApp({ service, pairingCode, transcriber, production }: AppO
           score: s.score,
           reason: s.reason,
           flaggedAt: new Date(base - (seeds.length - i) * 60_000).toISOString(),
+          demo: true,
         }),
       );
       return { added: seeds.length };

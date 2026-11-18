@@ -13,6 +13,7 @@ export interface FlaggedItem {
   score: number;
   reason: string;
   flaggedAt: string;
+  demo?: boolean;
 }
 
 export interface Verdict {

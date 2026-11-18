@@ -11,8 +11,7 @@
       "name": "network",
       "desc": "Fetches flagged Telegram messages from the Gavel server and sends your moderation decisions.",
       "whitelist": [
-        "http://localhost:8787",
-        "https://api.gavel.app"
+        "http://localhost:8787"
       ]
     },
     {

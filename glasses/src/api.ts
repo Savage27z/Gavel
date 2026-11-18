@@ -43,6 +43,7 @@ export class HttpClient implements QueueClient {
     } catch {
       throw new ApiError("Offline. Press to retry", 0);
     }
+    if (response.status === 501) throw new ApiError("Voice not set up on server", 501);
     if (response.status === 401 || response.status === 403) throw new ApiError("Wrong pairing code", response.status);
     if (!response.ok && response.status !== 204) throw new ApiError(`Server error ${response.status}`, response.status);
     return response;
