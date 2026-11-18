@@ -24,15 +24,15 @@ export function renderScreen(state: State): Screen {
   switch (state.phase) {
     case "pairing":
       return {
-        header: "MOD QUEUE",
+        header: "GAVEL",
         body: "Open this app on your phone\nand enter the pairing code.",
         footer: "Waiting for pairing...",
       };
     case "loading":
-      return { header: "MOD QUEUE", body: "Loading...", footer: "" };
+      return { header: "GAVEL", body: "Loading...", footer: "" };
     case "card":
     case "busy":
-      if (!state.item) return { header: "MOD QUEUE", body: state.message, footer: "" };
+      if (!state.item) return { header: "GAVEL", body: state.message, footer: "" };
       return {
         header: `${BADGE[state.item.risk]}   ${state.pending} pending`,
         body: state.phase === "busy" ? state.message : cardBody(state.item),
@@ -46,7 +46,7 @@ export function renderScreen(state: State): Screen {
       };
     case "empty":
       return {
-        header: "MOD QUEUE",
+        header: "GAVEL",
         body: "Queue clear",
         footer: state.undoToken ? "Up undo | Dn refresh" : "Dn refresh",
       };

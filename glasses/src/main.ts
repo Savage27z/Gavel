@@ -117,7 +117,7 @@ async function boot(): Promise<void> {
   const created = await bridge.createStartUpPageContainer(new CreateStartUpPageContainer({
     containerTotalNum: 3,
     textObject: [
-      new TextContainerProperty({ xPosition: 0, yPosition: 0, width: 576, height: 40, containerID: HEADER.id, containerName: HEADER.name, content: "MOD QUEUE", isEventCapture: 0 }),
+      new TextContainerProperty({ xPosition: 0, yPosition: 0, width: 576, height: 40, containerID: HEADER.id, containerName: HEADER.name, content: "GAVEL", isEventCapture: 0 }),
       new TextContainerProperty({ xPosition: 0, yPosition: 44, width: 576, height: 190, containerID: BODY.id, containerName: BODY.name, content: "", isEventCapture: 1 }),
       new TextContainerProperty({ xPosition: 0, yPosition: 240, width: 576, height: 48, containerID: FOOTER.id, containerName: FOOTER.name, content: "", isEventCapture: 0 }),
     ],
