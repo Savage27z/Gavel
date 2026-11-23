@@ -70,13 +70,20 @@ Telegram does not deliver bot messages to other bots in groups. So a second post
 
 `demo/holdout-messages.json` has 20 further messages (10 scams, 10 hard benign cases such as real warnings, docs links and legitimate "DM me" offers). It was written after the rules, scored once before any tuning, and then used to fix one false positive, so it is no longer a clean test.
 
-Rules-only results (`server/test/eval.test.ts`): dev set 14/14 scams flagged, 0 false positives (tuned on this set); held-out set 7/10 scams flagged, 0 false positives after the fix (8/10 with 1 false positive before it). Misses are phrased without any rule keyword, which is what the optional LLM pass (`LLM_API_KEY`) is for; it also now sees anything the rules score at 0.1 or more instead of only already-flagged messages. The LLM path has no tests and has not been run against a real model.
+Rules-only results (`server/test/eval.test.ts`): dev set 14/14 scams flagged, 0 false positives (tuned on this set); held-out set 7/10 scams flagged, 0 false positives after the fix (8/10 with 1 false positive before it). Misses are phrased without any rule keyword, which is what the optional LLM pass (`LLM_API_KEY`) is for; it also now sees anything the rules score at 0.1 or more instead of only already-flagged messages. The LLM path is covered by mocked-API tests but has not been run against a real model.
 
-## What existed before Nov 23
+## What existed before Nov 23, and what was built during the event
 
-<!-- PLACEHOLDER: fill in before submission. List honestly any code, libraries, or prototypes that existed before the hackathon start on Nov 23, and what was built during the event. -->
+The organizers confirmed that only work done from Nov 23 to Nov 29 counts in judging. Everything below the tag `pre-hackathon` (commit 0ce3c82, dated Nov 18) was written before the event started. Judge the commits after that tag.
 
-TODO: to be completed by the team.
+**Existed before Nov 23 (tag `pre-hackathon`)**
+- Even Hub glasses plugin: queue card, gestures, pairing, auto-refresh, voice confirm, wave and NEW HIGH display, shift summary.
+- Server: Telegram bot (grammY), rules classifier, optional LLM refiner, queue with claim and undo, repeat-offender suggestions, scam-wave grouping, audit log, voice intent parser and transcription endpoint.
+- Test data and evaluation sets, demo storyboard draft, and a Telegram test (flag, mute, delete, undo) against one test group.
+- Third-party code: Fastify, grammY, the Even Hub SDK and simulator, Vite and Vitest.
+
+**Built Nov 23 to Nov 29**
+- Filled in as the work lands. See the commits after the `pre-hackathon` tag.
 
 ## Feature requests for Telegram / Even Hub APIs
 
